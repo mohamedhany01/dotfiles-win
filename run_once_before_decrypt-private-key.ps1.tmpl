@@ -1,0 +1,24 @@
+# Define paths for the home directory and key files
+$homePath = [Environment]::GetFolderPath("UserProfile")
+$keyFilePath = Join-Path -Path $homePath -ChildPath ".config\chezmoi\key.txt"
+$encryptedKeyPath = Join-Path -Path (chezmoi source-path) -ChildPath "key.txt.age"
+
+# Check if the key file exists
+if (!(Test-Path -Path $keyFilePath)) {
+    # Create the .config/chezmoi directory if it doesn't exist
+    $configPath = Join-Path -Path $homePath -ChildPath ".config\chezmoi"
+    if (!(Test-Path -Path $configPath)) {
+        New-Item -ItemType Directory -Path $configPath -Force | Out-Null
+    }
+    
+    # Run chezmoi to decrypt the age-encrypted file
+    chezmoi age decrypt --output $keyFilePath --passphrase $encryptedKeyPath
+    
+    # Set permissions: Read and Write access only for the current user
+    $acl = New-Object System.Security.AccessControl.FileSecurity
+    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+        $env:UserName, "Read, Write", "Allow"
+    )
+    $acl.AddAccessRule($accessRule)
+    Set-Acl -Path $keyFilePath -AclObject $acl
+}
